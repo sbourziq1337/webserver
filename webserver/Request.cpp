@@ -114,7 +114,7 @@ void parsing_method(Request &rec, const std::string line) {
     std::istringstream input(line);
     std::string filename;
     input >> rec.mthod >> filename >> rec.version;
-    rec.root = "/home/akera/Desktop/webserver";
+    rec.root = "/home/sbourziq/Desktop/web/webserver";
     filename = urlDecode(filename);
     filename = remove_slash(filename);
     rec.path = rec.root + (filename == "/" ? "/index.html" : filename);

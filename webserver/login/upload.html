@@ -30,6 +30,7 @@
       padding: 60px;
       text-align: center;
       margin-top: 20px;
+      cursor: pointer;
     }
 
     .drop-zone.hover {
@@ -68,20 +69,38 @@
     .clear-btn:hover {
       background: #d9363e;
     }
+
+    .upload-btn {
+      margin-top: 20px;
+      padding: 10px 20px;
+      font-size: 16px;
+      background: #2a4cf5;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    .upload-btn:hover {
+      background: #1a3cdc;
+    }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>File Manager</h1>
-    <p style="text-align:center;">Easily upload, manage, and remove your files</p>
+    <p style="text-align:center;">Drag files or click below to upload</p>
 
     <div class="drop-zone" id="drop-zone">
-      <p>Drag and drop files here, or <input type="file" id="file-input" multiple style="display:inline"/></p>
+      <p>Drop files here or click to select</p>
+      <input type="file" id="file-input" multiple style="display: none;" />
     </div>
+
+    <button class="upload-btn" onclick="uploadAll()">Upload Files</button>
 
     <div class="file-list" id="file-list">
       <div style="display: flex; justify-content: space-between; align-items: center;">
-        <strong>Uploaded Files</strong>
+        <strong>Selected Files</strong>
         <button class="clear-btn" onclick="clearFiles()">Clear All</button>
       </div>
       <div id="files"></div>
@@ -92,19 +111,9 @@
     const dropZone = document.getElementById('drop-zone');
     const fileInput = document.getElementById('file-input');
     const filesDiv = document.getElementById('files');
+    let selectedFiles = [];
 
-    function addFile(name, size) {
-      const div = document.createElement('div');
-      div.className = 'file-item';
-      div.innerHTML = `<span class="file-name">${name}</span><span>${(size / 1024).toFixed(2)} KB</span>`;
-      filesDiv.appendChild(div);
-    }
-
-    function handleFiles(files) {
-      [...files].forEach(file => {
-        addFile(file.name, file.size);
-      });
-    }
+    dropZone.addEventListener('click', () => fileInput.click());
 
     dropZone.addEventListener('dragover', (e) => {
       e.preventDefault();
@@ -125,8 +134,53 @@
       handleFiles(fileInput.files);
     });
 
+    function addFileToList(name, size) {
+      const div = document.createElement('div');
+      div.className = 'file-item';
+      div.innerHTML = `<span class="file-name">${name}</span><span>${(size / 1024).toFixed(2)} KB</span>`;
+      filesDiv.appendChild(div);
+    }
+
+    function handleFiles(files) {
+      for (let file of files) {
+        selectedFiles.push(file);
+        addFileToList(file.name, file.size);
+      }
+    }
+
     function clearFiles() {
+      selectedFiles = [];
       filesDiv.innerHTML = '';
+      fileInput.value = '';
+    }
+
+    function uploadAll() {
+      if (selectedFiles.length === 0) {
+        alert("Please select files first.");
+        return;
+      }
+
+      selectedFiles.forEach(file => {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        fetch('/upload', {
+          method: 'POST',
+          body: formData
+        })
+        .then(response => {
+          if (response.ok) {
+            console.log(`${file.name} uploaded successfully`);
+          } else {
+            console.error(`Failed to upload ${file.name}`);
+          }
+        })
+        .catch(err => {
+          console.error('Error:', err);
+        });
+      });
+
+      alert("Upload started. Check your server logs.");
     }
   </script>
 </body>

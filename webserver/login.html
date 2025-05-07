@@ -81,7 +81,8 @@
 
   <div class="container">
     <h2>Login</h2>
-    <form action="/login.html" method="POST">
+    <!-- ✅ Fix: match the path "/login/index.html" checked in your C++ backend -->
+    <form action="/login" method="POST">
       <label for="login-username">Username</label>
       <input type="text" id="login-username" name="username" required />
 
@@ -94,7 +95,8 @@
     <div class="separator">OR</div>
 
     <h2>Create Account</h2>
-    <form action="/singup" method="POST">
+    <!-- ✅ Fix: match the path "/login/singup.html" checked in your C++ backend -->
+    <form action="/login/singup" method="POST">
       <label for="signup-username">Username</label>
       <input type="text" id="signup-username" name="username" required />
 

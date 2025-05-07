@@ -1,6 +1,6 @@
 #include "server.hpp"
 
-void response_post(std::string name_file, int fd, std::string header)
+void response_post(std::string name_file, int &fd, std::string header)
 {
     std::ifstream file(name_file.c_str(), std::ios::binary);
     if (!file.is_open())
@@ -30,9 +30,11 @@ void response_post(std::string name_file, int fd, std::string header)
 void parsing_Post(std::map<std::string, std::string> head, std::string body, std::string path, int &fd)
 {
     static std::map<std::string, std::string> post_res;
+    std::cout << body << std::endl;
 
     std::map<std::string, std::string> form_data;
-    if (head.count("Content-Type") && head["Content-Type"] == " application/x-www-form-urlencoded\r")
+    if (head.count("Content-Type") && 
+        head["Content-Type"].find("application/x-www-form-urlencoded") != std::string::npos)
     {
         std::istringstream ss(body);
         std::string pair;
@@ -41,7 +43,7 @@ void parsing_Post(std::map<std::string, std::string> head, std::string body, std
             size_t eq = pair.find('=');
             if (eq != std::string::npos)
             {
-                std::string key =  pair.substr(0, eq);
+                std::string key = pair.substr(0, eq);
                 std::string value = pair.substr(eq + 1);
                 form_data[key] = value;
             }
@@ -50,34 +52,40 @@ void parsing_Post(std::map<std::string, std::string> head, std::string body, std
 
     std::string username = form_data["username"];
     std::string password = form_data["password"];
-    std::cout << path << std::endl;
-    std::cout << "username is " << username << ", password is " << password << std::endl;
-    if (path == "/login.html" || path == "/login/index.html")
+    if (is_directory(path))
     {
-        if (post_res.count(username) && post_res[username] == password)
-            path = "./login/upload.html";
-        else
-            path = "./login/login_failed.html";
-    }
-    else if (path == "/login/singup.html" || path == "/singup/index.html")
-    {
-        post_res[username] = password;
-        path = "./login/upload.html";
-    }
-    else if (is_directory(path))
-    {
+        std::cout << "dir path is " << path << std::endl;
         path += "/index.html";
+        if (path == "/home/sbourziq/Desktop/web/webserver/login/index.html")
+        {
+            if (post_res.count(username) && post_res[username] == password)
+                path = "/home/sbourziq/Desktop/web/webserver/login/upload.html";
+            else
+                path = "/home/sbourziq/Desktop/web/webserver/login/login_failed.html";
+        }
+        else if (path == "/home/sbourziq/Desktop/web/webserver/login/singup/index.html")
+        {
+            post_res[username] = password;
+        }
+        std::string header = "HTTP/1.1 200 OK\r\nContent-Type: " + getContentType(path) + "\r\n";
+        response_post(path, fd, header);
     }
-
-    // Determine response
-    if (is_file(path))
+    else if (is_file(path))
     {
+        std::cout << "file path is " << path << std::endl;
+        if (path == "/login.html")
+        {
+            if (post_res.count(username) && post_res[username] == password)
+                path = "/home/sbourziq/Desktop/web/webserver/login/upload.html";
+            else
+                path = "/home/sbourziq/Desktop/web/webserver/login/login_failed.html";
+        }
         std::string header = "HTTP/1.1 200 OK\r\nContent-Type: " + getContentType(path) + "\r\n";
         response_post(path, fd, header);
     }
     else
     {
         std::string header = "HTTP/1.1 404 Not Found\r\nContent-Type: text/html\r\n";
-        response_post("./not_found.html", fd, header);
+        response_post("/not_found.html", fd, header);
     }
 }
