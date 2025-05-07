@@ -1,15 +1,10 @@
 #include "server.hpp"
-
+#include <sys/stat.h>
 long getFileSize(const std::string &filename)
 {
-    std::ifstream file(filename.c_str(), std::ios::binary);
-    if (file)
-    {
-        file.seekg(0, std::ios::end);
-        std::streampos size = file.tellg();
-        if (size != std::streampos(-1))
-            return static_cast<long>(size);
-    }
+    struct stat s;
+    if (stat(filename.c_str(), &s) == 0)
+        return (s.st_size);
     return -1;
 }
 void response(std::string name_file, int fd, std::string header)
@@ -23,8 +18,12 @@ void response(std::string name_file, int fd, std::string header)
         close(fd);
         return;
     }
-    header += "content-length: " + getFileSize(name_file) + "\r\n\r\n";
-    const char* new_head = header.c_str();
+    std::ostringstream oss;
+    oss << "Content-Length: " << getFileSize(name_file) << "\r\n";
+    oss << "Connection: close" << "\r\n\r\n";
+    header += oss.str();
+
+    const char *new_head = header.c_str();
     char buffer[4096];
     send(fd, new_head, strlen(new_head), 0);
 
@@ -57,21 +56,68 @@ std::string getContentType(const std::string &filename)
         return "image/jpeg";
     return "application/octet-stream";
 }
-
-void parsing_Get(std::map<std::string, std::string> head, std::string path, int &fd)
+bool is_file(const std::string &path)
 {
-    if (path.empty())
-        path = "index.html";
-    std::ifstream file(path.c_str());
-    if (!file.is_open())
-    {
-        std::string header = "HTTP/1.1 404 Not Found\r\nContent-Type: text/html\r\n";
-        response("not_found.html", fd, header);
-    }
-    else
-    {
-        std::string header = "HTTP/1.1 200 OK\r\nContent-Type: " + getContentType(path) + "\r\n\r\n";
-        response(path, fd, header);
-    }
-    std::cout << "File size is: " << getFileSize(path) << " bytes" << std::endl;
+    struct stat s;
+    if (stat(path.c_str(), &s) == 0)
+        return S_ISREG(s.st_mode);
+    return false;
 }
+
+bool is_directory(const std::string &path)
+{
+    struct stat s;
+    if (stat(path.c_str(), &s) == 0)
+        return S_ISDIR(s.st_mode);
+    return false;
+}
+std::string urlDecode(const std::string &str)
+{
+    std::ostringstream decoded;
+    for (size_t i = 0; i < str.length(); ++i)
+    {
+        if (str[i] == '%' && i + 2 < str.length() &&
+            std::isxdigit(str[i + 1]) && std::isxdigit(str[i + 2]))
+        {
+            std::string hex = str.substr(i + 1, 2);
+            int value;
+            std::istringstream iss(hex);
+            iss >> std::hex >> value;
+            char ch = static_cast<char>(value);
+
+            decoded << ch;
+            i += 2;
+        }
+        else if (str[i] == '+')
+            decoded << ' ';
+        else
+            decoded << str[i];
+    }
+    return decoded.str();
+}
+std::string remove_slash(std::string path) {
+    size_t pos;
+    while ((pos = path.find("//")) != std::string::npos) {
+        path.replace(pos, 2, "/");
+    }
+    if (path.empty()) {
+        return "/";
+    }
+
+    if (path[0] != '/') {
+        return "/" + path;
+    }
+
+    return path;
+}
+void parsing_method(Request &rec, const std::string line) {
+    std::istringstream input(line);
+    std::string filename;
+    input >> rec.mthod >> filename >> rec.version;
+    rec.root = "/home/akera/Desktop/webserver";
+    filename = urlDecode(filename);
+    filename = remove_slash(filename);
+    rec.path = rec.root + (filename == "/" ? "/index.html" : filename);
+ //   std::cout << filename << std::endl;
+}
+

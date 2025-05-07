@@ -1,4 +1,4 @@
-SRC = server.cpp Request.cpp
+SRC = server.cpp Request.cpp get_method.cpp post_method.cpp
 cpp= c++
 
 CFLAGS = -std=c++98

@@ -16,28 +16,6 @@ void ft_error(const char *msg)
     perror(msg);
     exit(1);
 }
-
-void parsing_method(Request &rec, const std::string &line)
-{
-    int j = 0, count = 0;
-    int i = 0;
-    for ( i = 0; i < line.size(); i++)
-    {
-        if (line[i] == ' ')
-        {
-            if (count == 0)
-                rec.mthod = line.substr(j, i - j);
-            else if (count == 1)
-                rec.path = line.substr((j + 1), i - j - 1);
-            j = i + 1;
-            count++;
-        }
-    }
-    if (j < line.size())
-        rec.version = line.substr(j, i - j - 1);
-}
-
-
 int main()
 {
     sockaddr_in serv_add;
@@ -60,21 +38,22 @@ int main()
         ft_error("Listening failed");
 
     std::cout << "Server is running on port " << PORT << "...\n";
-
     while (true)
     {
         sockaddr_in cli_add;
         socklen_t cli_len = sizeof(cli_add);
         int new_socket = accept(socket_fd, (struct sockaddr *)&cli_add, &cli_len);
-        if (new_socket < 0) {
+        if (new_socket < 0)
+        {
             perror("Accept failed");
-            continue;  // Don't exit, continue to accept next connection
+            continue;
         }
 
         char buffer[4096];
         memset(buffer, 0, sizeof(buffer));
         ssize_t bytes_read = read(new_socket, buffer, sizeof(buffer) - 1);
-        if (bytes_read < 0) {
+        if (bytes_read < 0)
+        {
             perror("Failed to read from socket");
             close(new_socket);
             continue;
@@ -82,7 +61,8 @@ int main()
 
         // Save request to file
         std::ofstream MyFile("filename.txt");
-        if (!MyFile.is_open()) {
+        if (!MyFile.is_open())
+        {
             perror("Failed to open file for writing");
             close(new_socket);
             continue;
@@ -92,14 +72,16 @@ int main()
 
         // Read and parse request
         std::ifstream ReadFile("filename.txt");
-        if (!ReadFile.is_open()) {
+        if (!ReadFile.is_open())
+        {
             perror("Failed to open file for reading");
             close(new_socket);
             continue;
         }
 
         std::string method_line;
-        if (!getline(ReadFile, method_line)) {
+        if (!getline(ReadFile, method_line))
+        {
             perror("Failed to read method line");
             close(new_socket);
             continue;
@@ -107,25 +89,38 @@ int main()
 
         Request obj;
         parsing_method(obj, method_line);
-
         std::map<std::string, std::string> head;
         std::string line;
-        while (getline(ReadFile, line)) {
-            if (line.empty())
+        while (std::getline(ReadFile, line))
+        {
+            if (line == "\r" || line.empty())
                 break;
-            size_t x = line.find(":");
-            if (x != std::string::npos) {
-                std::string key = line.substr(0, x);
-                std::string value = line.substr(x + 1);
+            size_t pos = line.find(":");
+            if (pos != std::string::npos && pos > 0)
+            {
+                std::string key = line.substr(0, pos);
+                std::string value = line.substr(pos + 1);
                 head[key] = value;
             }
         }
+        int contentLength = 0;
+        if (head.count("Content-Length"))
+            contentLength = std::atoi(head["Content-Length"].c_str());
+
+        char *bodyBuffer = new char[contentLength + 1];
+        ReadFile.read(bodyBuffer, contentLength);
+        bodyBuffer[contentLength] = '\0';
+
+        std::string body = bodyBuffer;
+        delete[] bodyBuffer;
 
         if (obj.mthod == "GET" && obj.version == "HTTP/1.1")
             parsing_Get(head, obj.path, new_socket);
+        else if (obj.mthod == "POST" && obj.version == "HTTP/1.1")
+            parsing_Post(head, body, obj.path, new_socket);
 
         ReadFile.close();
-        close(new_socket);  // Close connection after handling request
+        close(new_socket);
     }
 
     close(socket_fd);
